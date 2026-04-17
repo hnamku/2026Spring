@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Linear Regression</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; display: flex; flex-direction: column; align-items: center; background: #f8f9fa; color: #333; }
+        .container { width: 90%; max-width: 800px; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); margin-top: 30px; }
+        h1 { color: #2d3436; margin-bottom: 10px; }
+        p { color: #636e72; }
+        canvas { cursor: crosshair; background: #fff; border: 1px solid #eee; }
+        .stats { display: flex; justify-content: space-around; margin-top: 20px; padding: 15px; background: #f1f3f5; border-radius: 10px; font-weight: bold; }
+        .formula { font-size: 1.2rem; color: #0984e3; text-align: center; margin: 15px 0; }
+        .controls { margin-top: 10px; }
+        button { padding: 10px 20px; border: none; background: #ff7675; color: white; border-radius: 5px; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #d63031; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>선형 회귀 인터랙티브 시뮬레이션</h1>
+    <p>그래프 위를 <strong>클릭</strong>하여 데이터 포인트를 추가해보세요. 포인트에 맞춰 실시간으로 최적의 회귀선이 그려집니다.</p>
+    
+    <div class="formula" id="formulaDisplay">$$y = 0x + 0$$</div>
+
+    <canvas id="regressionChart" width="800" height="400"></canvas>
+
+    <div class="stats">
+        <div>기울기 (Slope): <span id="slopeText">0</span></div>
+        <div>절편 (Intercept): <span id="interceptText">0</span></div>
+        <div>R² (결정계수): <span id="rSquaredText">0</span></div>
+    </div>
+
+    <div class="controls">
+        <button onclick="resetData()">데이터 초기화</button>
+    </div>
+</div>
+
+<script>
+    let points = [];
+    const ctx = document.getElementById('regressionChart').getContext('2d');
+    
+    const chart = new Chart(ctx, {
+        type: 'scatter',
+        data: {
+            datasets: [{
+                label: '데이터 포인트',
+                data: points,
+                backgroundColor: '#0984e3',
+                pointRadius: 6
+            }, {
+                label: '회귀선',
+                data: [],
+                type: 'line',
+                borderColor: '#ff7675',
+                borderWidth: 2,
+                fill: false,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            onClick: (e) => {
+                const canvasPosition = Chart.helpers.getRelativePosition(e, chart);
+                const x = chart.scales.x.getValueForPixel(canvasPosition.x);
+                const y = chart.scales.y.getValueForPixel(canvasPosition.y);
+                points.push({x, y});
+                updateRegression();
+            },
+            scales: {
+                x: { min: 0, max: 100, title: { display: true, text: 'X 변수' } },
+                y: { min: 0, max: 100, title: { display: true, text: 'Y 변수' } }
+            }
+        }
+    });
+
+    function updateRegression() {
+        if (points.length < 2) {
+            chart.update();
+            return;
+        }
+
+        const n = points.length;
+        let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+
+        points.forEach(p => {
+            sumX += p.x;
+            sumY += p.y;
+            sumXY += p.x * p.y;
+            sumX2 += p.x * p.x;
+            sumY2 += p.y * p.y;
+        });
+
+        // 최소제곱법 공식 적용
+        const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        const intercept = (sumY - slope * sumX) / n;
+
+        // R-Squared 계산
+        const yMean = sumY / n;
+        const ssTot = points.reduce((acc, p) => acc + Math.pow(p.y - yMean, 2), 0);
+        const ssRes = points.reduce((acc, p) => acc + Math.pow(p.y - (slope * p.x + intercept), 2), 0);
+        const rSquared = ssTot === 0 ? 1 : 1 - (ssRes / ssTot);
+
+        // 결과 업데이트
+        document.getElementById('slopeText').innerText = slope.toFixed(2);
+        document.getElementById('interceptText').innerText = intercept.toFixed(2);
+        document.getElementById('rSquaredText').innerText = rSquared.toFixed(3);
+        document.getElementById('formulaDisplay').innerText = `y = ${slope.toFixed(2)}x + ${intercept.toFixed(2)}`;
+
+        // 회귀선 데이터 생성
+        chart.data.datasets[1].data = [
+            {x: 0, y: intercept},
+            {x: 100, y: slope * 100 + intercept}
+        ];
+
+        chart.update();
+    }
+
+    function resetData() {
+        points = [];
+        chart.data.datasets[0].data = [];
+        chart.data.datasets[1].data = [];
+        document.getElementById('slopeText').innerText = '0';
+        document.getElementById('interceptText').innerText = '0';
+        document.getElementById('rSquaredText').innerText = '0';
+        document.getElementById('formulaDisplay').innerText = 'y = 0x + 0';
+        chart.update();
+    }
+</script>
+
+</body>
+</html>
